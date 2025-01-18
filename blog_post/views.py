@@ -4,7 +4,11 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
+from rest_framework.throttling import UserRateThrottle
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.filters import SearchFilter, OrderingFilter
+
+
 
 from blog_post.models import BlogPost, Reaction, Comment
 from blog_post.serializers import (UserSerializer,
@@ -28,12 +32,10 @@ class UserRegistrationAPIView(APIView):
             user = serializer.save()
             send_registration_email.delay(user.email)  #TODO configure in signals 
             return Response({
-                "user": {
                     "id": user.id,
                     "username": user.username,
                     "role": user.bloguser.role
-                }
-            }, status=status.HTTP_201_CREATED)
+                }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -44,6 +46,12 @@ class PostViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthorOrReadOnly, IsAuthenticated]
     throttle_classes = [UserRateThrottle]
     queryset = BlogPost.objects.select_related("author").order_by("title")
+    filter_backends = [SearchFilter, DjangoFilterBackend, OrderingFilter]
+    search_fields = ['title', 'content']
+    filterset_fields = [
+        "author_id", "created_at", 
+    ]
+    ordering_fields = ['views']
     serializer_class = BlogPostSerializer
     pagination_class = PostPagination
     page_size = 10
